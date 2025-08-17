@@ -1,0 +1,46 @@
+# ----------------------
+# Python
+# ----------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+
+# Virtual Environment
+.venv/
+env/
+venv/
+ENV/
+
+# Logs
+*.log
+
+# ----------------------
+# Config & Secrets
+# ----------------------
+.env
+config.py        # don't commit credentials
+
+# ----------------------
+# OS-specific
+# ----------------------
+.DS_Store
+Thumbs.db
+
+# ----------------------
+# IDEs
+# ----------------------
+.vscode/
+.idea/
+
+# ----------------------
+# Exported Files
+# ----------------------
+*.csv
+*.xlsx
+*.pdf
+*.zip
+employee_details.csv
+training_report.csv
+ECHO is on.
