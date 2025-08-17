@@ -20,7 +20,6 @@ ENV/
 # Config & Secrets
 # ----------------------
 .env
-config.py        # don't commit credentials
 
 # ----------------------
 # OS-specific
