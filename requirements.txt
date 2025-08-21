@@ -1,19 +1,10 @@
-# Flask framework
 flask==3.0.3
+flask-mysqldb==2.0.0
 jinja2==3.1.4
-
-# Database (SQLAlchemy + MySQL driver)
 sqlalchemy==2.0.31
 pymysql==1.1.1
-
-# Data processing
 pandas==2.2.2
-
-# Load environment variables from .env
 python-dotenv==1.0.1
-
-# Email handling
 secure-smtplib==0.1.1
-
-# Production server
 waitress==3.0.0
+python-dateutil==2.9.0

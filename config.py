@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 
+# Load environment variables from .env
 load_dotenv()
 
 # Flask config
@@ -19,3 +20,6 @@ MYSQL_DB = os.getenv("MYSQL_DB", "training")
 # Email config
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+
+# File upload config
+UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads")

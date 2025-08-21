@@ -1,96 +1,103 @@
 import os
-from datetime import datetime
+import csv
 import pandas as pd
-import mysql.connector
-from flask import Flask, request, render_template
-from config import Config
+from dateutil import parser
+from flask import Flask, render_template, request, redirect, flash
+from flask_mysqldb import MySQL
+from werkzeug.utils import secure_filename
+import config
 
-app = Flask(__name__)
-app.secret_key = Config.SECRET_KEY
+# --- Absolute Paths ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_FOLDER = os.path.join(BASE_DIR, 'templates')
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 
-@app.route("/")
-def home():
-    return render_template("uploads.html")
+# --- Flask App Config ---
+app = Flask(__name__, template_folder=TEMPLATE_FOLDER)
+app.secret_key = config.SECRET_KEY
 
+app.config['MYSQL_HOST'] = config.MYSQL_HOST
+app.config['MYSQL_USER'] = config.MYSQL_USER
+app.config['MYSQL_PASSWORD'] = config.MYSQL_PASSWORD
+app.config['MYSQL_DB'] = config.MYSQL_DB
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-@app.route("/upload", methods=["POST"])
-def upload():
-    if "file" not in request.files:
-        return "No file part", 400
-    file = request.files["file"]
-    if file.filename == "":
-        return "No selected file", 400
+mysql = MySQL(app)
 
-    if file and file.filename.endswith(".csv"):
-        df = pd.read_csv(file)
+# Ensure upload folder exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-        print("Columns in CSV:", list(df.columns))
-        print("First row:", df.iloc[0].to_dict())
+# --- ETL Functions ---
+def extract_data(filepath):
+    _, ext = os.path.splitext(filepath.lower())
+    if ext == '.csv':
+        with open(filepath, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            next(reader, None)  # skip header
+            return list(reader)
+    elif ext in ('.xls', '.xlsx'):
+        df = pd.read_excel(filepath)
+        return df.values.tolist()
+    else:
+        raise ValueError(f"Unsupported file type: {ext}")
 
-        connection = mysql.connector.connect(
-            host=Config.MYSQL_HOST,
-            user=Config.MYSQL_USER,
-            password=Config.MYSQL_PASSWORD,
-            database=Config.MYSQL_DB
-        )
-        cursor = connection.cursor()
+def transform_data(data):
+    transformed = []
+    for row in data:
+        try:
+            if len(row) > 4 and row[4]:
+                parsed_date = parser.parse(str(row[4]))
+                row[4] = parsed_date.strftime("%Y-%m-%d")
+                transformed.append(row)
+        except Exception as e:
+            print(f"Skipped row: {row} --> {e}")
+    return transformed
 
-        insert_query = """
-            INSERT INTO training_employee_records (
-                Employee_ID, Employee_Name, Department, Gender, Training_Date,
-                Training_Category, Course, Training_Mode, No_of_Training_session, Training_Hours
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE
-                Employee_Name = VALUES(Employee_Name),
-                Department = VALUES(Department),
-                Gender = VALUES(Gender),
-                Training_Category = VALUES(Training_Category),
-                Course = VALUES(Course),
-                Training_Mode = VALUES(Training_Mode),
-                No_of_Training_session = VALUES(No_of_Training_session),
-                Training_Hours = VALUES(Training_Hours)
-        """
+def load_data(rows):
+    cur = mysql.connection.cursor()
+    query = """
+        INSERT INTO Employee_Details (
+            Employee_ID, Employee_Name, Department, Gender, Training_Date,
+            Training_Category, Course, Training_Mode, No_of_Training_session, Training_Hours
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON DUPLICATE KEY UPDATE
+            Employee_Name=VALUES(Employee_Name),
+            Department=VALUES(Department),
+            Gender=VALUES(Gender),
+            Training_Date=VALUES(Training_Date),
+            Training_Category=VALUES(Training_Category),
+            Course=VALUES(Course),
+            Training_Mode=VALUES(Training_Mode),
+            No_of_Training_session=VALUES(No_of_Training_session),
+            Training_Hours=VALUES(Training_Hours);
+    """
+    for row in rows:
+        cur.execute(query, row)
+    mysql.connection.commit()
+    cur.close()
 
-        summary = {"inserted": 0, "updated": 0, "failed": 0}
+# --- Routes ---
+@app.route('/')
+def form():
+    return render_template('upload.html')
 
-        for _, row in df.iterrows():
-            try:
-                # Convert Training_Date to MySQL format
-                training_date = datetime.strptime(row['Training_Date'], "%d-%m-%Y").strftime("%Y-%m-%d")
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files or request.files['file'].filename == '':
+        flash('No file selected.')
+        return redirect('/')
 
-                values = (
-                    row['Employee_ID'],
-                    row['Employee_Name'],
-                    row['Department'],
-                    row['Gender'],
-                    training_date,
-                    row['Training_Category'],
-                    row['Course'],
-                    row['Training_Mode'],
-                    int(row['No_of_Training_session']),
-                    int(row['Training_Hours'])
-                )
+    file = request.files['file']
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
 
-                cursor.execute(insert_query, values)
-                if cursor.rowcount == 1:
-                    summary["inserted"] += 1
-                else:
-                    summary["updated"] += 1
+    try:
+        raw_data = extract_data(filepath)
+        cleaned_data = transform_data(raw_data)
+        load_data(cleaned_data)
+        flash('File uploaded and data inserted successfully!')
+    except Exception as e:
+        flash(f'Error: {e}')
 
-            except Exception as e:
-                summary["failed"] += 1
-                print(f"Error inserting row {row.to_dict()}: {e}")
-
-        connection.commit()
-        cursor.close()
-        connection.close()
-
-        result_msg = f"Upload Summary: {summary['inserted']} inserted, {summary['updated']} updated, {summary['failed']} failed."
-        print(result_msg)
-        return result_msg, 200
-
-    return "Invalid file format. Please upload a CSV.", 400
-
-
-if __name__ == "__main__":
-    app.run(host=Config.FLASK_HOST, port=Config.FLASK_PORT, debug=True)
+    return redirect('/')
