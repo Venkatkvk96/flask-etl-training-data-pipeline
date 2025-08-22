@@ -15,15 +15,15 @@ An **automatic email** is sent to the training DRIs and respective leaders after
 ## **Project Structure**:
 
 Project Root:
-    - .env file
-    - requirements.txt
-    - config.py
-    - templates
-        - upload.html
-    - FLASK_with_ETL.py
-    - run_waitress.py
-    - daily_training_email.py
-    - export.py
+- .env file
+- requirements.txt
+- config.py
+- templates
+    - upload.html
+- FLASK_with_ETL.py
+- run_waitress.py
+- daily_training_email.py
+- export.py
 
 ## **Tech Stack**:
 
