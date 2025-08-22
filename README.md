@@ -29,7 +29,7 @@ Project Root:
 
 | Component        | Technology / Library    |
 |-----------------|--------------------------|
-| **Backend**    | Flask (Python)            |
+| **Web Framework**    | Flask (Python)            |
 | **Database**   | MySQL                     |
 | **ETL**        | Python (pandas, dateutil) |
 | **Deployment** | Waitress                  |
