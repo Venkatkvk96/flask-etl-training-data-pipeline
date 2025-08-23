@@ -7,12 +7,12 @@ from flask_mysqldb import MySQL
 from werkzeug.utils import secure_filename
 import config
 
-# --- Absolute Paths ---
+# HTML path for waitress and flask
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_FOLDER = os.path.join(BASE_DIR, 'templates')
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 
-# --- Flask App Config ---
+# Flask App Config
 app = Flask(__name__, template_folder=TEMPLATE_FOLDER)
 app.secret_key = config.SECRET_KEY
 
@@ -27,7 +27,7 @@ mysql = MySQL(app)
 # Ensure upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# --- ETL Functions ---
+# ETL Functions
 def extract_data(filepath):
     _, ext = os.path.splitext(filepath.lower())
     if ext == '.csv':
@@ -76,7 +76,7 @@ def load_data(rows):
     mysql.connection.commit()
     cur.close()
 
-# --- Routes ---
+# FLASK Routes
 @app.route('/')
 def form():
     return render_template('upload.html')
